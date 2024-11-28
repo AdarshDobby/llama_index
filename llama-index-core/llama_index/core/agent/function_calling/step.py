@@ -338,22 +338,26 @@ class FunctionCallingAgentWorker(BaseAgentWorker):
         else:
             is_done = False
             for i, tool_call in enumerate(tool_calls):
-                # TODO: maybe execute this with multi-threading
-                return_direct = self._call_function(
-                    tools,
-                    tool_call,
-                    task.extra_state["new_memory"],
-                    tool_outputs,
-                    verbose=self._verbose,
-                )
-                task.extra_state["sources"].append(tool_outputs[-1])
-                task.extra_state["n_function_calls"] += 1
-
-                # check if any of the tools return directly -- only works if there is one tool call
-                if i == 0 and return_direct:
+                if tool_call.tool_name.startswith('ui_'):
                     is_done = True
-                    response = task.extra_state["sources"][-1].content
+                    response = tool_call.model_dump_json()
                     break
+                else:
+                    return_direct = self._call_function(
+                        tools,
+                        tool_call,
+                        task.extra_state["new_memory"],
+                        tool_outputs,
+                        verbose=self._verbose,
+                    )
+                    task.extra_state["sources"].append(tool_outputs[-1])
+                    task.extra_state["n_function_calls"] += 1
+
+                    # check if any of the tools return directly -- only works if there is one tool call
+                    if i == 0 and return_direct:
+                        is_done = True
+                        response = task.extra_state["sources"][-1].content
+                        break
 
             # put tool output in sources and memory
             new_steps = (
